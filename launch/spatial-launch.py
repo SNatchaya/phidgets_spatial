@@ -15,6 +15,7 @@
 """Launch a Phidgets spatial in a component container."""
 
 import launch
+import sys
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
@@ -24,6 +25,7 @@ def generate_launch_description():
 
     params = {
         # optional param use_orientation, default is false
+        'serial_number': 
         'use_orientation': False,
 
         # optional param spatial_algorithm, default is 'ahrs'
@@ -61,3 +63,6 @@ def generate_launch_description():
     )
 
     return launch.LaunchDescription([container])
+
+print('here')
+exit()

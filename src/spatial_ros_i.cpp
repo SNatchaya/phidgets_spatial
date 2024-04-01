@@ -113,10 +113,6 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
 
     int serial_num =
         this->declare_parameter("serial", -1);  // default open any device
-    // // Modify the frame_id_ variable to include the serial number
-    // frame_id_ = "imu_" + std::to_string(serial_num) + "/data";
-    
-    std::string imu_name = this->declare_parameter("topic_name", "imu_" + std::to_string(serial_num));
 
     int hub_port = this->declare_parameter(
         "hub_port", 0);  // only used if the device is on a VINT hub_port
@@ -166,7 +162,6 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
         throw std::runtime_error("Publish rate must be <= 1000");
     }
 
-    this->declare_parameter("server_name",
                             rclcpp::ParameterType::PARAMETER_STRING);
     this->declare_parameter("server_ip",
                             rclcpp::ParameterType::PARAMETER_STRING);
@@ -265,13 +260,17 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
             std::bind(&SpatialRosI::attachCallback, this),
             std::bind(&SpatialRosI::detachCallback, this));
 
+        
+
         RCLCPP_INFO(get_logger(), "Connected to serial %d",
                     spatial_->getSerialNumber());
+
+        serial_num = spatial_->getSerialNumber();
 
         spatial_->setDataInterval(data_interval_ms);
 
         cal_publisher_ = this->create_publisher<std_msgs::msg::Bool>(
-            imu_name + "/is_calibrated", rclcpp::SystemDefaultsQoS().transient_local());
+            "imu_" + std::to_string(serial_num) + "/is_calibrated", rclcpp::SystemDefaultsQoS().transient_local());
 
         calibrate();
 
@@ -314,15 +313,15 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
     }
 
     
-    imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_name + "/data_raw", 1);
+    imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("imu_" + std::to_string(serial_num) + "/data_raw", 1);
 
     cal_srv_ = this->create_service<std_srvs::srv::Empty>(
-        imu_name + "/calibrate",
+        "imu_" + std::to_string(serial_num) + "/calibrate",
         std::bind(&SpatialRosI::calibrateService, this, std::placeholders::_1,
                   std::placeholders::_2));
 
     magnetic_field_pub_ =
-        this->create_publisher<sensor_msgs::msg::MagneticField>(imu_name + "/mag", 1);
+        this->create_publisher<sensor_msgs::msg::MagneticField>("imu_" + std::to_string(serial_num) + "/mag", 1);
 
     if (publish_rate_ > 0.0)
     {
@@ -534,7 +533,7 @@ void SpatialRosI::spatialDataCallback(const double acceleration[3],
     }
 
     if (can_publish_)  // Cannot publish data until IMU/ROS timestamps have been
-                       // synchronized at least once
+                       // synchronizedi at least once
     {
         // Save off the values
         last_accel_x_ = -acceleration[0] * G;

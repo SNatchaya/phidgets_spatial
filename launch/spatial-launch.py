@@ -25,7 +25,6 @@ def generate_launch_description():
 
     params = {
         # optional param use_orientation, default is false
-        'serial_number': 
         'use_orientation': False,
 
         # optional param spatial_algorithm, default is 'ahrs'

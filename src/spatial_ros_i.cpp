@@ -162,6 +162,7 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
         throw std::runtime_error("Publish rate must be <= 1000");
     }
 
+    this->declare_parameter("server_name",
                             rclcpp::ParameterType::PARAMETER_STRING);
     this->declare_parameter("server_ip",
                             rclcpp::ParameterType::PARAMETER_STRING);

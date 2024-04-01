@@ -15,15 +15,17 @@
 """Launch a Phidgets spatial in a component container."""
 
 import launch
-import sys
+import argparse
+
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
 
-def generate_launch_description():
+def generate_launch_description(serial_number:int=-1):
     """Generate launch description with multiple components."""
 
     params = {
+        'serial': serial_number,
         # optional param use_orientation, default is false
         'use_orientation': False,
 
@@ -63,5 +65,15 @@ def generate_launch_description():
 
     return launch.LaunchDescription([container])
 
-print('here')
-exit()
+parser = argparse.ArgumentParser()
+parser.add_argument('--serial', help='the serial number of the PhidgetSpatial')
+
+args = parser.parse_args()
+
+if args.serial:
+    print(f"IMU serial number: {args.serial}")
+    serial_number = int(args.serial)
+else:
+    print("Using default serial number")
+    serial_number = -1
+generate_launch_description(serial_number)

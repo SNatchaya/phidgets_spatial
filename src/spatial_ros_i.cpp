@@ -54,15 +54,69 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
 
     RCLCPP_INFO(get_logger(), "Starting Phidgets Spatial");
 
-    // std::string imu_publisher_name_ = this->declare_parameter("imu_publisher_name", "imu/data_raw_1");
+    bool use_orientation = this->declare_parameter(
+        "use_orientation",
+        false);  // default do not use the onboard orientation
+    std::string spatial_algorithm =
+        this->declare_parameter("spatial_algorithm", "ahrs");
 
-    std::string raw_topic_name = this->declare_parameter("raw_topic_name", "imu/data_raw");
-    std::string cal_topic_name = this->declare_parameter("cal_topic_name", "imu/is_calibrated");
-    std::string mag_topic_name = this->declare_parameter("mag_topic_name", "imu/mag");
-    std::string cal_service_name   = this->declare_parameter("cal_service_name", "imu/calibrate");
+    double ahrsAngularVelocityThreshold;
+    double ahrsAngularVelocityDeltaThreshold;
+    double ahrsAccelerationThreshold;
+    double ahrsMagTime;
+    double ahrsAccelTime;
+    double ahrsBiasTime;
+
+    this->declare_parameter("ahrs_angular_velocity_threshold",
+                            rclcpp::ParameterType::PARAMETER_DOUBLE);
+    this->declare_parameter("ahrs_angular_velocity_delta_threshold",
+                            rclcpp::ParameterType::PARAMETER_DOUBLE);
+    this->declare_parameter("ahrs_acceleration_threshold",
+                            rclcpp::ParameterType::PARAMETER_DOUBLE);
+    this->declare_parameter("ahrs_mag_time",
+                            rclcpp::ParameterType::PARAMETER_DOUBLE);
+    this->declare_parameter("ahrs_accel_time",
+                            rclcpp::ParameterType::PARAMETER_DOUBLE);
+    this->declare_parameter("ahrs_bias_time",
+                            rclcpp::ParameterType::PARAMETER_DOUBLE);
+
+    bool has_ahrs_params =
+        this->get_parameter("ahrs_angular_velocity_threshold",
+                            ahrsAngularVelocityThreshold) &&
+        this->get_parameter("ahrs_angular_velocity_delta_threshold",
+                            ahrsAngularVelocityDeltaThreshold) &&
+        this->get_parameter("ahrs_acceleration_threshold",
+                            ahrsAccelerationThreshold) &&
+        this->get_parameter("ahrs_mag_time", ahrsMagTime) &&
+        this->get_parameter("ahrs_accel_time", ahrsAccelTime) &&
+        this->get_parameter("ahrs_bias_time", ahrsBiasTime);
+
+    double algorithm_magnetometer_gain;
+    bool set_algorithm_magnetometer_gain = true;
+    if (!this->get_parameter("algorithm_magnetometer_gain",
+                             algorithm_magnetometer_gain))
+    {
+        algorithm_magnetometer_gain = 0.0;
+        set_algorithm_magnetometer_gain =
+            false;  // if parameter not set, do not call api (because this
+                    // function is not available from MOT0110 onwards)
+    }
+
+    bool heating_enabled;
+    bool set_heating_enabled = true;
+    if (!this->get_parameter("heating_enabled", heating_enabled))
+    {
+        set_heating_enabled =
+            false;  // if parameter not set, do not call api (because this
+                    // function is just available from MOT0109 onwards)
+    }
 
     int serial_num =
         this->declare_parameter("serial", -1);  // default open any device
+    // // Modify the frame_id_ variable to include the serial number
+    // frame_id_ = "imu_" + std::to_string(serial_num) + "/data";
+    
+    std::string imu_name = this->declare_parameter("topic_name", "imu_" + std::to_string(serial_num));
 
     int hub_port = this->declare_parameter(
         "hub_port", 0);  // only used if the device is on a VINT hub_port
@@ -112,21 +166,35 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
         throw std::runtime_error("Publish rate must be <= 1000");
     }
 
+    this->declare_parameter("server_name",
+                            rclcpp::ParameterType::PARAMETER_STRING);
+    this->declare_parameter("server_ip",
+                            rclcpp::ParameterType::PARAMETER_STRING);
+    if (this->get_parameter("server_name", server_name_) &&
+        this->get_parameter("server_ip", server_ip_))
+    {
+        PhidgetNet_addServer(server_name_.c_str(), server_ip_.c_str(), 5661, "",
+                             0);
+
+        RCLCPP_INFO(get_logger(), "Using phidget server %s at IP %s",
+                    server_name_.c_str(), server_ip_.c_str());
+    }
+
     // compass correction params (see
     // http://www.phidgets.com/docs/1044_User_Guide)
-    this->declare_parameter("cc_mag_field");
-    this->declare_parameter("cc_offset0");
-    this->declare_parameter("cc_offset1");
-    this->declare_parameter("cc_offset2");
-    this->declare_parameter("cc_gain0");
-    this->declare_parameter("cc_gain1");
-    this->declare_parameter("cc_gain2");
-    this->declare_parameter("cc_t0");
-    this->declare_parameter("cc_t1");
-    this->declare_parameter("cc_t2");
-    this->declare_parameter("cc_t3");
-    this->declare_parameter("cc_t4");
-    this->declare_parameter("cc_t5");
+    this->declare_parameter("cc_mag_field", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_offset0", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_offset1", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_offset2", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_gain0", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_gain1", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_gain2", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_t0", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_t1", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_t2", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_t3", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_t4", rclcpp::PARAMETER_DOUBLE);
+    this->declare_parameter("cc_t5", rclcpp::PARAMETER_DOUBLE);
 
     bool has_compass_params = false;
     double cc_mag_field = 0.0;
@@ -159,7 +227,7 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
         cc_T4 = this->get_parameter("cc_t4").get_value<double>();
         cc_T5 = this->get_parameter("cc_t5").get_value<double>();
         has_compass_params = true;
-    } catch (const rclcpp::exceptions::ParameterNotDeclaredException &)
+    } catch (const rclcpp::exceptions::ParameterUninitializedException &)
     {
     }
 
@@ -172,13 +240,28 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
     // finished setting up.
     std::lock_guard<std::mutex> lock(spatial_mutex_);
 
+    last_quat_w_ = 0.0;
+    last_quat_x_ = 0.0;
+    last_quat_y_ = 0.0;
+    last_quat_z_ = 0.0;
+
     try
     {
+        std::function<void(const double[4], double)> algorithm_data_handler =
+            nullptr;
+        if (use_orientation)
+        {
+            algorithm_data_handler =
+                std::bind(&SpatialRosI::spatialAlgorithmDataCallback, this,
+                          std::placeholders::_1, std::placeholders::_2);
+        }
+
         spatial_ = std::make_unique<Spatial>(
             serial_num, hub_port, false,
             std::bind(&SpatialRosI::spatialDataCallback, this,
                       std::placeholders::_1, std::placeholders::_2,
                       std::placeholders::_3, std::placeholders::_4),
+            algorithm_data_handler,
             std::bind(&SpatialRosI::attachCallback, this),
             std::bind(&SpatialRosI::detachCallback, this));
 
@@ -188,9 +271,27 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
         spatial_->setDataInterval(data_interval_ms);
 
         cal_publisher_ = this->create_publisher<std_msgs::msg::Bool>(
-            cal_topic_name, rclcpp::SystemDefaultsQoS().transient_local());
+            imu_name + "/is_calibrated", rclcpp::SystemDefaultsQoS().transient_local());
 
         calibrate();
+
+        if (use_orientation)
+        {
+            spatial_->setSpatialAlgorithm(spatial_algorithm);
+
+            if (has_ahrs_params)
+            {
+                spatial_->setAHRSParameters(ahrsAngularVelocityThreshold,
+                                            ahrsAngularVelocityDeltaThreshold,
+                                            ahrsAccelerationThreshold,
+                                            ahrsMagTime, ahrsAccelTime,
+                                            ahrsBiasTime);
+            }
+
+            if (set_algorithm_magnetometer_gain)
+                spatial_->setAlgorithmMagnetometerGain(
+                    algorithm_magnetometer_gain);
+        }
 
         if (has_compass_params)
         {
@@ -201,25 +302,27 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
         {
             RCLCPP_INFO(get_logger(), "No compass correction params found.");
         }
+
+        if (set_heating_enabled)
+        {
+            spatial_->setHeatingEnabled(heating_enabled);
+        }
     } catch (const Phidget22Error &err)
     {
         RCLCPP_ERROR(get_logger(), "Spatial: %s", err.what());
         throw;
     }
-    // if serial != -1:
-    //     imu_pub_name = imu_pub_name + f'_{serial}'
-    //     imu_cal_name = imu_cal_name + f'_{serial}'
-    //     imu_mag_name = imu_mag_name + f'_{serial}'
 
-    imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(raw_topic_name, 1);
+    
+    imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_name + "/data_raw", 1);
 
     cal_srv_ = this->create_service<std_srvs::srv::Empty>(
-        cal_service_name,
+        imu_name + "/calibrate",
         std::bind(&SpatialRosI::calibrateService, this, std::placeholders::_1,
                   std::placeholders::_2));
 
     magnetic_field_pub_ =
-        this->create_publisher<sensor_msgs::msg::MagneticField>(mag_topic_name, 1);
+        this->create_publisher<sensor_msgs::msg::MagneticField>(imu_name + "/mag", 1);
 
     if (publish_rate_ > 0.0)
     {
@@ -313,6 +416,12 @@ void SpatialRosI::publishLatest()
     msg->angular_velocity.x = last_gyro_x_;
     msg->angular_velocity.y = last_gyro_y_;
     msg->angular_velocity.z = last_gyro_z_;
+
+    // set spatial algorithm orientation estimation
+    msg->orientation.w = last_quat_w_;
+    msg->orientation.x = last_quat_x_;
+    msg->orientation.y = last_quat_y_;
+    msg->orientation.z = last_quat_z_;
 
     imu_pub_->publish(std::move(msg));
 
@@ -476,6 +585,16 @@ void SpatialRosI::spatialDataCallback(const double acceleration[3],
     }
 
     last_cb_time_ = now;
+}
+
+void SpatialRosI::spatialAlgorithmDataCallback(const double quaternion[4],
+                                               double timestamp)
+{
+    (void)timestamp;
+    last_quat_w_ = quaternion[3];
+    last_quat_x_ = quaternion[0];
+    last_quat_y_ = quaternion[1];
+    last_quat_z_ = quaternion[2];
 }
 
 void SpatialRosI::attachCallback()

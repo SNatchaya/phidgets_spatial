@@ -2,10 +2,27 @@
 Changelog for package phidgets_spatial
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-2.1.2 (2022-04-13)
+2.3.3 (2024-03-13)
+------------------
+* Add support for VINT networkhub (`#172 <https://github.com/ros-drivers/phidgets_drivers/issues/172>`_)
+  This is a port of `#127 <https://github.com/ros-drivers/phidgets_drivers/issues/127>`_ to ROS2.
+  Closes `#135 <https://github.com/ros-drivers/phidgets_drivers/issues/135>`_.
+* Contributors: Martin Günther
+
+2.3.2 (2023-11-27)
+------------------
+* Only set magnetometer gain if param is set (`#169 <https://github.com/ros-drivers/phidgets_drivers/issues/169>`_)
+* added new parameters for spatial precision MOT0109 onwards
+* added support for phidget spatial onboard orientation estimation
+* Contributors: Malte kl. Piening, Martin Günther
+
+2.3.1 (2023-03-03)
 ------------------
 
-2.1.1 (2022-02-17)
+2.3.0 (2022-04-13)
+------------------
+
+2.2.2 (2022-02-17)
 ------------------
 * Fix behavior after USB reattachment (`#119 <https://github.com/ros-drivers/phidgets_drivers/issues/119>`_)
   The Phidged Spatial never recovered after detaching and reattaching to
@@ -13,6 +30,17 @@ Changelog for package phidgets_spatial
 * Add attach + detach handlers
 * Fix publishing of invalid mag readings (`#116 <https://github.com/ros-drivers/phidgets_drivers/issues/116>`_)
 * Contributors: Martin Günther
+
+2.2.1 (2021-08-03)
+------------------
+* Make the magnetometer corrections optional again. (`#95 <https://github.com/ros-drivers/phidgets_drivers/issues/95>`_)
+* Update the ROS 2 readme files. (`#93 <https://github.com/ros-drivers/phidgets_drivers/issues/93>`_)
+* Contributors: Chris Lalancette
+
+2.2.0 (2021-05-20)
+------------------
+* Make sure to declare the type while declaring the parameter. (`#89 <https://github.com/ros-drivers/phidgets_drivers/issues/89>`_)
+* Contributors: Chris Lalancette
 
 2.1.0 (2021-03-29)
 ------------------

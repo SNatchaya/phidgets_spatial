@@ -15,17 +15,21 @@
 """Launch a Phidgets spatial in a component container."""
 
 import launch
-import argparse
 
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
+from launch.substitutions import LaunchConfiguration
 
-
-def generate_launch_description(serial_number:int=-1):
+def generate_launch_description():
     """Generate launch description with multiple components."""
 
+    # serial_number = LaunchConfiguration('serial')
+    # node_name_dec = LaunchConfiguration('node')
+    # node_name = node_name_dec.variable_name[0].text
+    # print(node_name)
+
     params = {
-        'serial': serial_number,
+        'serial': -1,
         # optional param use_orientation, default is false
         'use_orientation': False,
 
@@ -33,7 +37,7 @@ def generate_launch_description(serial_number:int=-1):
         'spatial_algorithm': 'ahrs',
 
         # optional ahrs parameters
-        'ahrs_angular_velocity_threshold': 1.0,
+        'ahrs_angular_velocity_threshold': 1.0, 
         'ahrs_angular_velocity_delta_threshold': 0.1,
         'ahrs_acceleration_threshold': 0.1,
         'ahrs_mag_time': 10.0,
@@ -47,33 +51,26 @@ def generate_launch_description(serial_number:int=-1):
         # optional param heating_enabled, not modified by default
         'heating_enabled': False,
     }
-
+    imu_nodes = []
+    for serial_num in [530779, 530809, 531450]:
+        params['serial'] = serial_num
+        node_name = f'imu_s{serial_num}'
+        imu_nodes.append(
+            ComposableNode(
+            package='phidgets_spatial',
+            plugin='phidgets::SpatialRosI',
+            # name='phidgets_spatial',
+            name=node_name,
+            parameters=[params])
+        )
+    
     container = ComposableNodeContainer(
             name='phidget_container',
             namespace='',
             package='rclcpp_components',
             executable='component_container',
-            composable_node_descriptions=[
-                ComposableNode(
-                    package='phidgets_spatial',
-                    plugin='phidgets::SpatialRosI',
-                    name='phidgets_spatial',
-                    parameters=[params]),
-            ],
+            composable_node_descriptions=imu_nodes,
             output='both',
     )
 
     return launch.LaunchDescription([container])
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--serial', help='the serial number of the PhidgetSpatial')
-
-args = parser.parse_args()
-
-if args.serial:
-    print(f"IMU serial number: {args.serial}")
-    serial_number = int(args.serial)
-else:
-    print("Using default serial number")
-    serial_number = -1
-generate_launch_description(serial_number)

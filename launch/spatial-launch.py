@@ -70,6 +70,7 @@ parser.add_argument('--serial', help='the serial number of the PhidgetSpatial')
 
 args = parser.parse_args()
 
+
 if args.serial:
     print(f"IMU serial number: {args.serial}")
     serial_number = int(args.serial)

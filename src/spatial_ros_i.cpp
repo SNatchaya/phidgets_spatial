@@ -57,6 +57,9 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
     bool use_orientation = this->declare_parameter(
         "use_orientation",
         false);  // default do not use the onboard orientation
+    int serial_num =
+        this->declare_parameter("serial", -1);  // default open any device
+        
     std::string spatial_algorithm =
         this->declare_parameter("spatial_algorithm", "ahrs");
 
@@ -110,9 +113,6 @@ SpatialRosI::SpatialRosI(const rclcpp::NodeOptions &options)
             false;  // if parameter not set, do not call api (because this
                     // function is just available from MOT0109 onwards)
     }
-
-    int serial_num =
-        this->declare_parameter("serial", -1);  // default open any device
 
     int hub_port = this->declare_parameter(
         "hub_port", 0);  // only used if the device is on a VINT hub_port
